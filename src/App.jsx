@@ -248,7 +248,7 @@ const App = () => {
         )}
         
         {activeTab === 'leads' && (
-          <LeadsTab leads={leads} setLeads={setLeads} />
+          <LeadsTab leads={leads} setLeads={setLeads} clients={clients} setClients={setClients} />
         )}
 
         {activeTab === 'reminders' && (
@@ -1398,7 +1398,7 @@ const RankUpdateForm = ({ currentRank, ranks, onUpdate }) => {
   );
 };
 
-const LeadsTab = ({ leads, setLeads }) => {
+const LeadsTab = ({ leads, setLeads, clients, setClients }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
@@ -1444,6 +1444,31 @@ const LeadsTab = ({ leads, setLeads }) => {
     if (confirm('Delete this lead?')) {
       setLeads(leads.filter(l => l.id !== id));
     }
+  };
+
+  const convertToClient = (lead) => {
+    const clientExists = clients.some(c => c.name.toLowerCase() === lead.name.toLowerCase());
+    
+    if (clientExists) {
+      alert('This person is already a client!');
+      return;
+    }
+    
+    const newClient = {
+      id: Date.now(),
+      name: lead.name,
+      discord: lead.contactInfo || '',
+      currentRank: 'Bronze',
+      startingRank: 'Bronze',
+      goalRank: 'Diamond',
+      notes: `Converted from lead (${lead.source})`,
+      rankHistory: [{ rank: 'Bronze', date: new Date().toISOString().split('T')[0], note: 'Converted from lead' }]
+    };
+    
+    setClients([...clients, newClient]);
+    setLeads(leads.map(l => l.id === lead.id ? { ...l, status: 'converted' } : l));
+    
+    alert(`${lead.name} has been added to Clients!`);
   };
 
   const getStatusColor = (status) => {
@@ -1575,6 +1600,15 @@ const LeadsTab = ({ leads, setLeads }) => {
                 </div>
               </div>
               <div className="flex gap-2">
+                {lead.status !== 'converted' && (
+                  <button
+                    onClick={() => convertToClient(lead)}
+                    className="p-2 bg-green-600 hover:bg-green-700 rounded transition"
+                    title="Convert to Client"
+                  >
+                    <Users className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   onClick={() => handleEdit(lead)}
                   className="p-2 bg-slate-700 hover:bg-slate-600 rounded transition"
@@ -2205,4 +2239,3 @@ const SettingsModal = ({ settings, setSettings, onClose, onExport }) => (
 );
 
 export default App;
-                                              
