@@ -2113,6 +2113,4 @@ const SettingsModal = ({ settings, setSettings, onClose, onExport }) => (
 );
 
 export default App;
-                  
-export default App;
-                  
+                              
