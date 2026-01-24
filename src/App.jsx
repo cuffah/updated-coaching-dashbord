@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Users, FileText, DollarSign, Settings, TrendingUp, Bell, Award, MessageSquare, Zap, Flame, Target, BarChart3, Plus, X, Edit2, Trash2, Check, Copy, ChevronDown, ChevronUp } from 'lucide-react';
 
 const App = () => {
@@ -613,12 +613,16 @@ const BookingsTab = ({ bookings, setBookings, clients, settings }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const finalPrice = formData.price * (1 - formData.discount / 100);
+    
+    // Calculate base price (hourly services multiply by duration, flat-rate services don't)
+    const isHourlyService = ['1-on-1', 'Team VOD', 'Scrim Coaching'].includes(formData.service);
+    const basePrice = isHourlyService ? formData.price * formData.duration : formData.price;
+    const finalPrice = basePrice * (1 - formData.discount / 100);
     
     if (editingId) {
-      setBookings(bookings.map(b => b.id === editingId ? { ...formData, id: editingId, finalPrice } : b));
+      setBookings(bookings.map(b => b.id === editingId ? { ...formData, id: editingId, finalPrice, basePrice } : b));
     } else {
-      setBookings([...bookings, { ...formData, id: Date.now(), finalPrice }]);
+      setBookings([...bookings, { ...formData, id: Date.now(), finalPrice, basePrice }]);
     }
     
     setFormData({
@@ -802,9 +806,15 @@ const BookingsTab = ({ bookings, setBookings, clients, settings }) => {
               <div className="bg-purple-900/30 border border-purple-600/50 rounded p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-slate-400 line-through">${formData.price}</span>
+                    <span className="text-slate-400 line-through">
+                      ${(['1-on-1', 'Team VOD', 'Scrim Coaching'].includes(formData.service) 
+                        ? (formData.price * formData.duration).toFixed(2)
+                        : formData.price.toFixed(2))}
+                    </span>
                     <span className="ml-2 text-xl font-bold text-green-400">
-                      ${(formData.price * (1 - formData.discount / 100)).toFixed(2)}
+                      ${((['1-on-1', 'Team VOD', 'Scrim Coaching'].includes(formData.service) 
+                        ? formData.price * formData.duration 
+                        : formData.price) * (1 - formData.discount / 100)).toFixed(2)}
                     </span>
                   </div>
                   <span className="text-sm text-purple-300">
@@ -886,14 +896,14 @@ const BookingsTab = ({ bookings, setBookings, clients, settings }) => {
                   <div>{booking.date} at {booking.time} ({booking.duration}h)</div>
                   {booking.discount > 0 ? (
                     <div className="flex items-center gap-2">
-                      <span className="line-through">${booking.price}</span>
+                      <span className="line-through">${(booking.basePrice || booking.price).toFixed(2)}</span>
                       <span className="text-green-400 font-semibold">${booking.finalPrice.toFixed(2)}</span>
                       <span className="text-xs bg-purple-600/30 px-2 py-0.5 rounded">
                         {booking.discount}% off - {booking.discountReason}
                       </span>
                     </div>
                   ) : (
-                    <div>${booking.price}</div>
+                    <div>${(booking.basePrice || booking.price).toFixed(2)}</div>
                   )}
                   {booking.service === '3-Session Package' && (
                     <PackageProgress clientName={booking.clientName} bookings={bookings} />
@@ -2102,5 +2112,7 @@ const SettingsModal = ({ settings, setSettings, onClose, onExport }) => (
   </div>
 );
 
+export default App;
+                  
 export default App;
                   
