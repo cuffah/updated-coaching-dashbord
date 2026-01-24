@@ -584,6 +584,7 @@ const CalendarTab = ({ bookings }) => {
 const BookingsTab = ({ bookings, setBookings, clients, settings }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [viewFilter, setViewFilter] = useState('upcoming'); // 'upcoming', 'completed', 'all'
   const [formData, setFormData] = useState({
     clientName: '',
     date: '',
@@ -597,7 +598,8 @@ const BookingsTab = ({ bookings, setBookings, clients, settings }) => {
     notes: '',
     preSessionNotes: '',
     duringSessionNotes: '',
-    homework: ''
+    homework: '',
+    completed: false
   });
 
   const serviceOptions = [
@@ -619,10 +621,28 @@ const BookingsTab = ({ bookings, setBookings, clients, settings }) => {
     const basePrice = isHourlyService ? formData.price * formData.duration : formData.price;
     const finalPrice = basePrice * (1 - formData.discount / 100);
     
+    const newBooking = { ...formData, id: editingId || Date.now(), finalPrice, basePrice, completed: formData.completed || false };
+    
     if (editingId) {
-      setBookings(bookings.map(b => b.id === editingId ? { ...formData, id: editingId, finalPrice, basePrice } : b));
+      setBookings(bookings.map(b => b.id === editingId ? newBooking : b));
     } else {
-      setBookings([...bookings, { ...formData, id: Date.now(), finalPrice, basePrice }]);
+      setBookings([...bookings, newBooking]);
+      
+      // Auto-add client if they don't exist
+      const clientExists = clients.some(c => c.name.toLowerCase() === formData.clientName.toLowerCase());
+      if (!clientExists && formData.clientName.trim()) {
+        const newClient = {
+          id: Date.now() + 1,
+          name: formData.clientName,
+          discord: '',
+          currentRank: 'Bronze',
+          startingRank: 'Bronze',
+          goalRank: 'Diamond',
+          notes: 'Auto-added from booking',
+          rankHistory: [{ rank: 'Bronze', date: new Date().toISOString().split('T')[0], note: 'Auto-added' }]
+        };
+        setClients([...clients, newClient]);
+      }
     }
     
     setFormData({
@@ -638,7 +658,8 @@ const BookingsTab = ({ bookings, setBookings, clients, settings }) => {
       notes: '',
       preSessionNotes: '',
       duringSessionNotes: '',
-      homework: ''
+      homework: '',
+      completed: false
     });
     setShowForm(false);
     setEditingId(null);
@@ -676,15 +697,64 @@ const BookingsTab = ({ bookings, setBookings, clients, settings }) => {
     }
   };
 
+  const toggleComplete = (id) => {
+    setBookings(bookings.map(b => b.id === id ? { ...b, completed: !b.completed } : b));
+  };
+
+  const now = new Date();
+  const filteredBookings = bookings.filter(booking => {
+    const bookingDateTime = new Date(booking.date + ' ' + booking.time);
+    const isPast = bookingDateTime < now;
+    
+    if (viewFilter === 'upcoming') return !booking.completed && !isPast;
+    if (viewFilter === 'completed') return booking.completed || isPast;
+    return true; // 'all'
+  }).sort((a, b) => new Date(b.date + ' ' + b.time) - new Date(a.date + ' ' + a.time));
+
   return (
     <div className="space-y-4">
-      <button
-        onClick={() => setShowForm(true)}
-        className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition flex items-center gap-2"
-      >
-        <Plus className="w-4 h-4" />
-        New Booking
-      </button>
+      <div className="flex justify-between items-center">
+        <button
+          onClick={() => setShowForm(true)}
+          className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          New Booking
+        </button>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => setViewFilter('upcoming')}
+            className={`px-4 py-2 rounded-lg transition ${
+              viewFilter === 'upcoming' 
+                ? 'bg-purple-600 text-white' 
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            Upcoming
+          </button>
+          <button
+            onClick={() => setViewFilter('completed')}
+            className={`px-4 py-2 rounded-lg transition ${
+              viewFilter === 'completed' 
+                ? 'bg-purple-600 text-white' 
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            Completed
+          </button>
+          <button
+            onClick={() => setViewFilter('all')}
+            className={`px-4 py-2 rounded-lg transition ${
+              viewFilter === 'all' 
+                ? 'bg-purple-600 text-white' 
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            All
+          </button>
+        </div>
+      </div>
 
       {showForm && (
         <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
@@ -874,24 +944,45 @@ const BookingsTab = ({ bookings, setBookings, clients, settings }) => {
       )}
 
       <div className="space-y-2">
-        {bookings.length === 0 && (
+        {filteredBookings.length === 0 && (
           <div className="text-center text-slate-400 py-8">
-            No bookings yet. Create your first booking!
+            No {viewFilter} bookings yet.
           </div>
         )}
-        {bookings.sort((a, b) => new Date(b.date + ' ' + b.time) - new Date(a.date + ' ' + a.time)).map(booking => (
-          <div key={booking.id} className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h3 className="font-semibold text-lg">{booking.clientName}</h3>
-                  <span className="text-sm bg-purple-600/30 px-2 py-1 rounded">{booking.service}</span>
-                  <span className={`text-sm px-2 py-1 rounded ${
-                    booking.paymentStatus === 'paid' ? 'bg-green-600/30' : 'bg-yellow-600/30'
-                  }`}>
-                    {booking.paymentStatus}
-                  </span>
-                </div>
+        {filteredBookings.map(booking => {
+          const bookingDateTime = new Date(booking.date + ' ' + booking.time);
+          const isPast = bookingDateTime < now;
+          
+          return (
+            <div key={booking.id} className={`bg-slate-800/50 rounded-lg p-4 border ${
+              booking.completed ? 'border-green-600/30 opacity-75' : 'border-slate-700'
+            }`}>
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <button
+                      onClick={() => toggleComplete(booking.id)}
+                      className={`w-6 h-6 rounded border-2 flex items-center justify-center transition ${
+                        booking.completed
+                          ? 'bg-green-600 border-green-500'
+                          : 'border-slate-600 hover:border-purple-500'
+                      }`}
+                    >
+                      {booking.completed && <Check className="w-4 h-4" />}
+                    </button>
+                    <h3 className={`font-semibold text-lg ${booking.completed ? 'line-through text-slate-500' : ''}`}>
+                      {booking.clientName}
+                    </h3>
+                    <span className="text-sm bg-purple-600/30 px-2 py-1 rounded">{booking.service}</span>
+                    <span className={`text-sm px-2 py-1 rounded ${
+                      booking.paymentStatus === 'paid' ? 'bg-green-600/30' : 'bg-yellow-600/30'
+                    }`}>
+                      {booking.paymentStatus}
+                    </span>
+                    {(booking.completed || isPast) && !booking.completed && (
+                      <span className="text-xs bg-slate-600 px-2 py-1 rounded">Past</span>
+                    )}
+                  </div>
                 <div className="text-sm text-slate-400 space-y-1">
                   <div>{booking.date} at {booking.time} ({booking.duration}h)</div>
                   {booking.discount > 0 ? (
@@ -948,7 +1039,8 @@ const BookingsTab = ({ bookings, setBookings, clients, settings }) => {
               </div>
             </div>
           </div>
-        ))}
+        );
+      })}
       </div>
     </div>
   );
@@ -2113,4 +2205,4 @@ const SettingsModal = ({ settings, setSettings, onClose, onExport }) => (
 );
 
 export default App;
-                              
+                                              
