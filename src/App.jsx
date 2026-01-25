@@ -1086,7 +1086,8 @@ const ClientsTab = ({ clients, setClients, bookings }) => {
     startingRank: 'Bronze',
     goalRank: 'Diamond',
     notes: '',
-    rankHistory: []
+    rankHistory: [],
+    manualSessionCount: null
   });
 
   const ranks = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Master', 'Grandmaster', 'Top 500'];
@@ -1114,7 +1115,8 @@ const ClientsTab = ({ clients, setClients, bookings }) => {
       startingRank: 'Bronze',
       goalRank: 'Diamond',
       notes: '',
-      rankHistory: []
+      rankHistory: [],
+      manualSessionCount: null
     });
     setShowForm(false);
     setEditingId(null);
@@ -1150,7 +1152,10 @@ const ClientsTab = ({ clients, setClients, bookings }) => {
 
   const getClientStats = (client) => {
     const clientBookings = bookings.filter(b => b.clientName === client.name);
-    const totalSessions = clientBookings.length;
+    const actualSessionCount = clientBookings.length;
+    const totalSessions = client.manualSessionCount !== null && client.manualSessionCount !== undefined 
+      ? client.manualSessionCount 
+      : actualSessionCount;
     const totalSpent = clientBookings.reduce((sum, b) => sum + (b.finalPrice || b.price || 0), 0);
     const lastSession = clientBookings.length > 0
       ? new Date(Math.max(...clientBookings.map(b => new Date(b.date)))).toLocaleDateString()
@@ -1234,6 +1239,21 @@ const ClientsTab = ({ clients, setClients, bookings }) => {
                     <option key={rank} value={rank}>{rank}</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1">Manual Session Count (optional)</label>
+                <input
+                  type="number"
+                  value={formData.manualSessionCount === null ? '' : formData.manualSessionCount}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    manualSessionCount: e.target.value === '' ? null : parseInt(e.target.value) 
+                  })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2"
+                  placeholder="Leave empty to auto-count"
+                />
+                <p className="text-xs text-slate-500 mt-1">Override the automatic session count from bookings</p>
               </div>
             </div>
 
