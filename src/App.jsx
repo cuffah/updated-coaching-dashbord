@@ -235,6 +235,7 @@ const App = () => {
             bookings={bookings} 
             setBookings={setBookings} 
             clients={clients}
+            setClients={setClients}
             settings={settings}
           />
         )}
@@ -581,7 +582,7 @@ const CalendarTab = ({ bookings }) => {
   );
 };
 
-const BookingsTab = ({ bookings, setBookings, clients, settings }) => {
+const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [viewFilter, setViewFilter] = useState('upcoming'); // 'upcoming', 'completed', 'all'
