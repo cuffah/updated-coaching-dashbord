@@ -4,6 +4,7 @@ import { Calendar, Users, FileText, DollarSign, Settings, TrendingUp, Bell, Awar
 const App = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showSettings, setShowSettings] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [clients, setClients] = useState([]);
   const [leads, setLeads] = useState([]);
@@ -41,12 +42,23 @@ const App = () => {
     }));
   }, [bookings, clients, leads, notes, reminders, testimonials, settings]);
 
+  // Get the start of the current week (Monday)
+  const getWeekStart = () => {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - daysFromMonday);
+    weekStart.setHours(0, 0, 0, 0);
+    return weekStart;
+  };
+
   const calculateStats = () => {
     const now = new Date();
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const weekStart = getWeekStart();
     const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const weekBookings = bookings.filter(b => new Date(b.date) >= weekAgo);
+    const weekBookings = bookings.filter(b => new Date(b.date) >= weekStart);
     const monthBookings = bookings.filter(b => new Date(b.date) >= monthAgo);
 
     const weekHours = weekBookings.reduce((sum, b) => sum + (b.duration || 1), 0);
@@ -178,7 +190,7 @@ const App = () => {
               <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                 OW2 Coaching Dashboard
               </h1>
-              <p className="text-slate-400 mt-1">Bossman Ting Coaching</p>
+              <p className="text-slate-400 mt-1">cuFFa Coaching</p>
             </div>
             <button
               onClick={() => setShowSettings(true)}
@@ -2246,6 +2258,33 @@ const SettingsModal = ({ settings, setSettings, onClose, onExport }) => (
         </div>
 
         <div className="pt-4 border-t border-slate-700">
+          <label className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex items-center justify-center gap-2 cursor-pointer transition">
+            <FileText className="w-4 h-4" />
+            Import Data (JSON)
+            <input
+              type="file"
+              accept=".json"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    try {
+                      const data = JSON.parse(event.target.result);
+                      localStorage.setItem('coachingDashboard', JSON.stringify(data));
+                      alert('Data imported successfully! Refreshing...');
+                      window.location.reload();
+                    } catch (error) {
+                      alert('Error importing data. Please check the file format.');
+                    }
+                  };
+                  reader.readAsText(file);
+                }
+              }}
+              className="hidden"
+            />
+          </label>
+          
           <button
             onClick={onExport}
             className="w-full bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded transition flex items-center justify-center gap-2"
