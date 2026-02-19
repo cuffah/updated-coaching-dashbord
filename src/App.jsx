@@ -71,28 +71,40 @@ const App = () => {
   };
 
   const getSessionStreak = () => {
-    const sortedBookings = [...bookings].sort((a, b) => new Date(b.date) - new Date(a.date));
-    if (sortedBookings.length === 0) return 0;
-
-    let streak = 0;
-    let currentWeekStart = new Date();
-    currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
-    currentWeekStart.setHours(0, 0, 0, 0);
-
-    let checkWeek = new Date(currentWeekStart);
+    if (bookings.length === 0) return 0;
     
-    while (true) {
+    const sortedBookings = [...bookings].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const firstBookingDate = new Date(sortedBookings[0].date);
+    
+    // Get Monday of the week of first booking
+    let checkWeek = new Date(firstBookingDate);
+    const dayOfWeek = checkWeek.getDay();
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    checkWeek.setDate(checkWeek.getDate() - daysFromMonday);
+    checkWeek.setHours(0, 0, 0, 0);
+    
+    let streak = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Count consecutive weeks with sessions
+    while (checkWeek <= today) {
       const weekEnd = new Date(checkWeek);
       weekEnd.setDate(weekEnd.getDate() + 7);
       
-      const hasSession = sortedBookings.some(b => {
+      const hasSession = bookings.some(b => {
         const bookingDate = new Date(b.date);
         return bookingDate >= checkWeek && bookingDate < weekEnd;
       });
       
-      if (!hasSession) break;
-      streak++;
-      checkWeek.setDate(checkWeek.getDate() - 7);
+      if (hasSession) {
+        streak++;
+      } else if (checkWeek < today) {
+        // If we missed a week in the past, reset streak
+        streak = 0;
+      }
+      
+      checkWeek.setDate(checkWeek.getDate() + 7);
     }
     
     return streak;
@@ -182,12 +194,12 @@ const App = () => {
   const maxEarnings = Math.max(...monthlyData.map(m => m.earnings), 1);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-slate-900 text-white p-4">
       <div className="max-w-7xl mx-auto">
         <header className="mb-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-pink-400 bg-clip-text text-transparent">
                 OW2 Coaching Dashboard
               </h1>
               <p className="text-slate-400 mt-1">cuFFa Coaching</p>
@@ -218,7 +230,7 @@ const App = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg transition whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'bg-purple-600 text-white'
+                  ? 'bg-orange-500 text-white'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
@@ -358,7 +370,7 @@ const DashboardTab = ({ stats, settings, streak, quickActions, monthlyData, maxE
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
         <h3 className="font-semibold mb-4 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-purple-400" />
+          <BarChart3 className="w-5 h-5 text-orange-400" />
           Year-to-Date Earnings
         </h3>
         <div className="flex items-end justify-between h-48 gap-2">
@@ -368,13 +380,78 @@ const DashboardTab = ({ stats, settings, streak, quickActions, monthlyData, maxE
                 ${month.earnings}
               </div>
               <div 
-                className="w-full bg-gradient-to-t from-purple-600 to-pink-500 rounded-t"
+                className="w-full bg-gradient-to-t from-orange-500 to-pink-500 rounded-t"
                 style={{ height: `${(month.earnings / maxEarnings) * 100}%`, minHeight: '4px' }}
               />
               <div className="text-xs text-slate-500">{month.month}</div>
             </div>
           ))}
-        </div>
+        
+
+      <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+        <h3 className="font-semibold mb-4 flex items-center gap-2">
+          <Users className="w-5 h-5 text-orange-400" />
+          Lead Sources
+        </h3>
+        {leadAnalytics && leadAnalytics.length > 0 ? (
+          <div className="space-y-4">
+            <div className="relative h-48 flex items-center justify-center">
+              <svg viewBox="0 0 200 200" className="w-48 h-48">
+                {(() => {
+                  let currentAngle = 0;
+                  const colors = ['#f59e0b', '#fb923c', '#10b981', '#3b82f6', '#8b5cf6'];
+                  return leadAnalytics.map((source, i) => {
+                    const percentage = (source.total / leadAnalytics.reduce((sum, s) => sum + s.total, 0)) * 100;
+                    const angle = (percentage / 100) * 360;
+                    const startX = 100 + 90 * Math.cos((currentAngle - 90) * Math.PI / 180);
+                    const startY = 100 + 90 * Math.sin((currentAngle - 90) * Math.PI / 180);
+                    const endX = 100 + 90 * Math.cos((currentAngle + angle - 90) * Math.PI / 180);
+                    const endY = 100 + 90 * Math.sin((currentAngle + angle - 90) * Math.PI / 180);
+                    const largeArc = angle > 180 ? 1 : 0;
+                    const path = `M 100 100 L ${startX} ${startY} A 90 90 0 ${largeArc} 1 ${endX} ${endY} Z`;
+                    currentAngle += angle;
+                    return (
+                      <path
+                        key={source.source}
+                        d={path}
+                        fill={colors[i % colors.length]}
+                        className="hover:opacity-80 transition-opacity"
+                      />
+                    );
+                  });
+                })()}
+              </svg>
+            </div>
+            <div className="space-y-2">
+              {(() => {
+                const colors = ['#f59e0b', '#fb923c', '#10b981', '#3b82f6', '#8b5cf6'];
+                const total = leadAnalytics.reduce((sum, s) => sum + s.total, 0);
+                return leadAnalytics.map((source, i) => (
+                  <div key={source.source} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: colors[i % colors.length] }}
+                      />
+                      <span>{source.source}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="text-slate-400">
+                        {Math.round((source.total / total) * 100)}%
+                      </span>
+                      <span className="font-semibold">{source.total}</span>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        ) : (
+          <p className="text-slate-400 text-sm">No lead data yet</p>
+        )}
+      </div>
+
+</div>
       </div>
 
       <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
@@ -397,7 +474,7 @@ const DashboardTab = ({ stats, settings, streak, quickActions, monthlyData, maxE
                   </div>
                   <div className="w-full bg-slate-700 rounded-full h-2">
                     <div
-                      className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full"
+                      className="bg-gradient-to-r from-orange-500 to-pink-500 h-2 rounded-full"
                       style={{ width: `${source.rate}%` }}
                     />
                   </div>
@@ -413,7 +490,7 @@ const DashboardTab = ({ stats, settings, streak, quickActions, monthlyData, maxE
 
 const StatCard = ({ icon: Icon, label, value, subtitle, color }) => {
   const colors = {
-    purple: 'from-purple-600 to-purple-800',
+    purple: 'from-orange-500 to-purple-800',
     pink: 'from-pink-600 to-pink-800',
     blue: 'from-blue-600 to-blue-800',
     orange: 'from-orange-600 to-orange-800'
@@ -466,7 +543,7 @@ const CalendarTab = ({ bookings }) => {
             </button>
             <button
               onClick={() => setCurrentDate(new Date())}
-              className="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded transition"
+              className="px-3 py-1 bg-orange-500 hover:bg-orange-600 rounded transition"
             >
               Today
             </button>
@@ -499,8 +576,9 @@ const CalendarTab = ({ bookings }) => {
             return (
               <div
                 key={day}
-                className={`aspect-square border rounded-lg p-2 ${
-                  isToday ? 'border-purple-500 bg-purple-900/30' : 'border-slate-700 bg-slate-900/30'
+                onClick={() => setSelectedDay(dateStr)}
+                className={`aspect-square border rounded-lg p-2 cursor-pointer transition-colors hover:bg-slate-800/50 ${
+                  isToday ? 'border-orange-500 bg-orange-900/30' : 'border-slate-700 bg-slate-900/30'
                 }`}
               >
                 <div className="text-sm font-semibold mb-1">{day}</div>
@@ -508,7 +586,7 @@ const CalendarTab = ({ bookings }) => {
                   {dayBookings.slice(0, 2).map((booking, idx) => (
                     <div
                       key={idx}
-                      className="text-xs bg-purple-600/50 rounded px-1 py-0.5 truncate"
+                      className="text-xs bg-orange-500/50 rounded px-1 py-0.5 truncate"
                       title={`${booking.time} - ${booking.clientName} (${booking.service})`}
                     >
                       {booking.time}
@@ -517,7 +595,7 @@ const CalendarTab = ({ bookings }) => {
                   {dayBookings.length > 2 && (
                     <button
                       onClick={() => setSelectedDay(dateStr)}
-                      className="text-xs text-purple-400 hover:text-purple-300 underline"
+                      className="text-xs text-orange-400 hover:text-orange-300 underline"
                     >
                       +{dayBookings.length - 2} more
                     </button>
@@ -556,7 +634,7 @@ const CalendarTab = ({ bookings }) => {
                   <div key={idx} className="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
                     <div className="flex items-center gap-3 mb-2">
                       <span className="text-lg font-semibold">{booking.time}</span>
-                      <span className="bg-purple-600/30 px-2 py-1 rounded text-sm">{booking.service}</span>
+                      <span className="bg-orange-500/30 px-2 py-1 rounded text-sm">{booking.service}</span>
                     </div>
                     <div className="text-sm space-y-1">
                       <div><span className="text-slate-400">Client:</span> {booking.clientName}</div>
@@ -567,7 +645,7 @@ const CalendarTab = ({ bookings }) => {
                           <>
                             <span className="line-through text-slate-500">${booking.price}</span>
                             <span className="ml-2 text-green-400 font-semibold">${booking.finalPrice.toFixed(2)}</span>
-                            <span className="ml-2 text-xs bg-purple-600/30 px-2 py-0.5 rounded">
+                            <span className="ml-2 text-xs bg-orange-500/30 px-2 py-0.5 rounded">
                               {booking.discount}% off
                             </span>
                           </>
@@ -612,7 +690,17 @@ const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) =
     preSessionNotes: '',
     duringSessionNotes: '',
     homework: '',
-    completed: false
+    completed: false,
+    // Package session tracking
+    session1Date: '',
+    session1Time: '',
+    session1Completed: false,
+    session2Date: '',
+    session2Time: '',
+    session2Completed: false,
+    session3Date: '',
+    session3Time: '',
+    session3Completed: false
   });
 
   const serviceOptions = [
@@ -672,7 +760,16 @@ const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) =
       preSessionNotes: '',
       duringSessionNotes: '',
       homework: '',
-      completed: false
+      completed: false,
+    session1Date: '',
+    session1Time: '',
+    session1Completed: false,
+    session2Date: '',
+    session2Time: '',
+    session2Completed: false,
+    session3Date: '',
+    session3Time: '',
+    session3Completed: false
     });
     setShowForm(false);
     setEditingId(null);
@@ -729,7 +826,7 @@ const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) =
       <div className="flex justify-between items-center">
         <button
           onClick={() => setShowForm(true)}
-          className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition flex items-center gap-2"
+          className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg transition flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
           New Booking
@@ -740,7 +837,7 @@ const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) =
             onClick={() => setViewFilter('upcoming')}
             className={`px-4 py-2 rounded-lg transition ${
               viewFilter === 'upcoming' 
-                ? 'bg-purple-600 text-white' 
+                ? 'bg-orange-500 text-white' 
                 : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
             }`}
           >
@@ -750,7 +847,7 @@ const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) =
             onClick={() => setViewFilter('completed')}
             className={`px-4 py-2 rounded-lg transition ${
               viewFilter === 'completed' 
-                ? 'bg-purple-600 text-white' 
+                ? 'bg-orange-500 text-white' 
                 : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
             }`}
           >
@@ -760,7 +857,7 @@ const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) =
             onClick={() => setViewFilter('all')}
             className={`px-4 py-2 rounded-lg transition ${
               viewFilter === 'all' 
-                ? 'bg-purple-600 text-white' 
+                ? 'bg-orange-500 text-white' 
                 : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
             }`}
           >
@@ -831,6 +928,98 @@ const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) =
                 />
               </div>
 
+              {formData.service === '3-Session Package' && (
+                <div className="col-span-2 space-y-4 mt-4 p-4 bg-slate-700/50 rounded-lg border border-orange-500/30">
+                  <h4 className="font-semibold text-orange-400 flex items-center gap-2">
+                    <Target className="w-4 h-4" />
+                    Package Sessions (3 total)
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold">Session 1 <span className="text-red-400">*</span></label>
+                      <input
+                        type="date"
+                        value={formData.session1Date}
+                        onChange={(e) => setFormData({...formData, session1Date: e.target.value})}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm"
+                        required
+                      />
+                      <input
+                        type="time"
+                        value={formData.session1Time}
+                        onChange={(e) => setFormData({...formData, session1Time: e.target.value})}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm"
+                        required
+                      />
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={formData.session1Completed}
+                          onChange={(e) => setFormData({...formData, session1Completed: e.target.checked})}
+                          className="rounded"
+                        />
+                        Completed
+                      </label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold">Session 2</label>
+                      <input
+                        type="date"
+                        value={formData.session2Date}
+                        onChange={(e) => setFormData({...formData, session2Date: e.target.value})}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm"
+                      />
+                      <input
+                        type="time"
+                        value={formData.session2Time}
+                        onChange={(e) => setFormData({...formData, session2Time: e.target.value})}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm"
+                      />
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={formData.session2Completed}
+                          onChange={(e) => setFormData({...formData, session2Completed: e.target.checked})}
+                          className="rounded"
+                        />
+                        Completed
+                      </label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold">Session 3</label>
+                      <input
+                        type="date"
+                        value={formData.session3Date}
+                        onChange={(e) => setFormData({...formData, session3Date: e.target.value})}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm"
+                      />
+                      <input
+                        type="time"
+                        value={formData.session3Time}
+                        onChange={(e) => setFormData({...formData, session3Time: e.target.value})}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm"
+                      />
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={formData.session3Completed}
+                          onChange={(e) => setFormData({...formData, session3Completed: e.target.checked})}
+                          className="rounded"
+                        />
+                        Completed
+                      </label>
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm text-slate-400 bg-slate-800/50 p-3 rounded">
+                    <strong>Tip:</strong> Sessions 2 & 3 can be left blank and added later by editing this booking.
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm mb-1">Duration (hours)</label>
                 <input
@@ -886,7 +1075,7 @@ const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) =
             </div>
 
             {formData.discount > 0 && (
-              <div className="bg-purple-900/30 border border-purple-600/50 rounded p-3">
+              <div className="bg-orange-900/30 border border-orange-500/50 rounded p-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-slate-400 line-through">
@@ -900,7 +1089,7 @@ const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) =
                         : formData.price) * (1 - formData.discount / 100)).toFixed(2)}
                     </span>
                   </div>
-                  <span className="text-sm text-purple-300">
+                  <span className="text-sm text-orange-300">
                     {formData.discount}% off {formData.discountReason && `(${formData.discountReason})`}
                   </span>
                 </div>
@@ -940,7 +1129,7 @@ const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) =
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded transition"
+                className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded transition"
               >
                 {editingId ? 'Update' : 'Create'} Booking
               </button>
@@ -978,7 +1167,7 @@ const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) =
                       className={`w-6 h-6 rounded border-2 flex items-center justify-center transition ${
                         booking.completed
                           ? 'bg-green-600 border-green-500'
-                          : 'border-slate-600 hover:border-purple-500'
+                          : 'border-slate-600 hover:border-orange-500'
                       }`}
                     >
                       {booking.completed && <Check className="w-4 h-4" />}
@@ -986,7 +1175,7 @@ const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) =
                     <h3 className={`font-semibold text-lg ${booking.completed ? 'line-through text-slate-500' : ''}`}>
                       {booking.clientName}
                     </h3>
-                    <span className="text-sm bg-purple-600/30 px-2 py-1 rounded">{booking.service}</span>
+                    <span className="text-sm bg-orange-500/30 px-2 py-1 rounded">{booking.service}</span>
                     <span className={`text-sm px-2 py-1 rounded ${
                       booking.paymentStatus === 'paid' ? 'bg-green-600/30' : 'bg-yellow-600/30'
                     }`}>
@@ -1002,7 +1191,7 @@ const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) =
                     <div className="flex items-center gap-2">
                       <span className="line-through">${(booking.basePrice || booking.price).toFixed(2)}</span>
                       <span className="text-green-400 font-semibold">${booking.finalPrice.toFixed(2)}</span>
-                      <span className="text-xs bg-purple-600/30 px-2 py-0.5 rounded">
+                      <span className="text-xs bg-orange-500/30 px-2 py-0.5 rounded">
                         {booking.discount}% off - {booking.discountReason}
                       </span>
                     </div>
@@ -1017,7 +1206,7 @@ const BookingsTab = ({ bookings, setBookings, clients, setClients, settings }) =
                   <div className="mt-3 space-y-2 text-sm">
                     {booking.preSessionNotes && (
                       <div>
-                        <span className="text-purple-400 font-medium">Pre-session:</span>
+                        <span className="text-orange-400 font-medium">Pre-session:</span>
                         <p className="text-slate-300">{booking.preSessionNotes}</p>
                       </div>
                     )}
@@ -1180,7 +1369,7 @@ const ClientsTab = ({ clients, setClients, bookings }) => {
     <div className="space-y-4">
       <button
         onClick={() => setShowForm(true)}
-        className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition flex items-center gap-2"
+        className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg transition flex items-center gap-2"
       >
         <Plus className="w-4 h-4" />
         New Client
@@ -1281,7 +1470,7 @@ const ClientsTab = ({ clients, setClients, bookings }) => {
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded transition"
+                className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded transition"
               >
                 {editingId ? 'Update' : 'Create'} Client
               </button>
@@ -1314,7 +1503,7 @@ const ClientsTab = ({ clients, setClients, bookings }) => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="font-semibold text-lg">{client.name}</h3>
-                      <span className="text-sm bg-purple-600/30 px-2 py-1 rounded">{client.currentRank}</span>
+                      <span className="text-sm bg-orange-500/30 px-2 py-1 rounded">{client.currentRank}</span>
                       {client.discord && (
                         <span className="text-sm text-slate-400">{client.discord}</span>
                       )}
@@ -1355,14 +1544,14 @@ const ClientsTab = ({ clients, setClients, bookings }) => {
                 <div className="border-t border-slate-700 p-4 space-y-4">
                   <div>
                     <h4 className="font-medium mb-2 flex items-center gap-2">
-                      <Award className="w-4 h-4 text-purple-400" />
+                      <Award className="w-4 h-4 text-orange-400" />
                       Rank Progression
                     </h4>
                     <div className="space-y-2">
                       {client.rankHistory.map((entry, i) => (
                         <div key={i} className="flex items-center gap-3 text-sm">
                           <span className="text-slate-400">{entry.date}</span>
-                          <span className="bg-purple-600/30 px-2 py-1 rounded">{entry.rank}</span>
+                          <span className="bg-orange-500/30 px-2 py-1 rounded">{entry.rank}</span>
                           {entry.note && <span className="text-slate-400">{entry.note}</span>}
                         </div>
                       ))}
@@ -1422,7 +1611,7 @@ const RankUpdateForm = ({ currentRank, ranks, onUpdate }) => {
       />
       <button
         type="submit"
-        className="bg-purple-600 hover:bg-purple-700 px-3 py-1 rounded text-sm transition"
+        className="bg-orange-500 hover:bg-orange-600 px-3 py-1 rounded text-sm transition"
         disabled={newRank === currentRank}
       >
         Update Rank
@@ -1508,7 +1697,7 @@ const LeadsTab = ({ leads, setLeads, clients, setClients }) => {
     const colors = {
       new: 'bg-blue-600/30',
       contacted: 'bg-yellow-600/30',
-      interested: 'bg-purple-600/30',
+      interested: 'bg-orange-500/30',
       converted: 'bg-green-600/30',
       lost: 'bg-red-600/30'
     };
@@ -1519,7 +1708,7 @@ const LeadsTab = ({ leads, setLeads, clients, setClients }) => {
     <div className="space-y-4">
       <button
         onClick={() => setShowForm(true)}
-        className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition flex items-center gap-2"
+        className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg transition flex items-center gap-2"
       >
         <Plus className="w-4 h-4" />
         New Lead
@@ -1593,7 +1782,7 @@ const LeadsTab = ({ leads, setLeads, clients, setClients }) => {
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded transition"
+                className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded transition"
               >
                 {editingId ? 'Update' : 'Create'} Lead
               </button>
@@ -1700,7 +1889,7 @@ const RemindersTab = ({ reminders, setReminders }) => {
     <div className="space-y-4">
       <button
         onClick={() => setShowForm(true)}
-        className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition flex items-center gap-2"
+        className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg transition flex items-center gap-2"
       >
         <Plus className="w-4 h-4" />
         New Reminder
@@ -1756,7 +1945,7 @@ const RemindersTab = ({ reminders, setReminders }) => {
             </div>
 
             <div className="flex gap-2">
-              <button type="submit" className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded transition">
+              <button type="submit" className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded transition">
                 Create Reminder
               </button>
               <button
@@ -1787,7 +1976,7 @@ const RemindersTab = ({ reminders, setReminders }) => {
                 className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center transition ${
                   reminder.completed
                     ? 'bg-green-600 border-green-500'
-                    : 'border-slate-600 hover:border-purple-500'
+                    : 'border-slate-600 hover:border-orange-500'
                 }`}
               >
                 {reminder.completed && <Check className="w-3 h-3" />}
@@ -1873,7 +2062,7 @@ const TestimonialsTab = ({ testimonials, setTestimonials }) => {
     <div className="space-y-4">
       <button
         onClick={() => setShowForm(true)}
-        className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition flex items-center gap-2"
+        className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg transition flex items-center gap-2"
       >
         <Plus className="w-4 h-4" />
         New Testimonial
@@ -1920,7 +2109,7 @@ const TestimonialsTab = ({ testimonials, setTestimonials }) => {
             </div>
 
             <div className="flex gap-2">
-              <button type="submit" className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded transition">
+              <button type="submit" className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded transition">
                 Add Testimonial
               </button>
               <button
@@ -2036,14 +2225,14 @@ const NotesTab = ({ notes, setNotes }) => {
     <div className="space-y-4">
       <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
         <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <Zap className="w-5 h-5 text-purple-400" />
+          <Zap className="w-5 h-5 text-orange-400" />
           Quick Reply Templates
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {quickReplyTemplates.map((template, idx) => (
             <div key={idx} className="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
               <div className="flex justify-between items-start mb-2">
-                <h4 className="font-medium text-sm text-purple-300">{template.title}</h4>
+                <h4 className="font-medium text-sm text-orange-300">{template.title}</h4>
                 <button
                   onClick={() => copyTemplate(template.text, template.title)}
                   className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded transition"
@@ -2120,8 +2309,8 @@ const ProjectionsTab = ({ bookings, settings }) => {
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gradient-to-br from-purple-900/50 to-purple-800/50 rounded-lg p-4 border border-purple-600/30">
-            <div className="text-sm text-purple-300 mb-1">Weekly</div>
+          <div className="bg-gradient-to-br from-orange-900/50 to-purple-800/50 rounded-lg p-4 border border-orange-500/30">
+            <div className="text-sm text-orange-300 mb-1">Weekly</div>
             <div className="text-2xl font-bold">${projections.weekly.toFixed(2)}</div>
           </div>
 
@@ -2258,7 +2447,7 @@ const SettingsModal = ({ settings, setSettings, onClose, onExport }) => (
         </div>
 
         <div className="pt-4 border-t border-slate-700">
-          <label className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex items-center justify-center gap-2 cursor-pointer transition">
+          <label className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex items-center justify-center gap-2 cursor-pointer transition mb-2">
             <FileText className="w-4 h-4" />
             Import Data (JSON)
             <input
@@ -2287,7 +2476,7 @@ const SettingsModal = ({ settings, setSettings, onClose, onExport }) => (
           
           <button
             onClick={onExport}
-            className="w-full bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded transition flex items-center justify-center gap-2"
+            className="w-full bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded transition flex items-center justify-center gap-2"
           >
             <DollarSign className="w-4 h-4" />
             Export All Data (JSON)
