@@ -386,7 +386,8 @@ const DashboardTab = ({ stats, settings, streak, quickActions, monthlyData, maxE
               <div className="text-xs text-slate-500">{month.month}</div>
             </div>
           ))}
-        
+        </div>
+      </div>
 
       <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
         <h3 className="font-semibold mb-4 flex items-center gap-2">
