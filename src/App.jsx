@@ -42,13 +42,12 @@ const App = () => {
     }));
   }, [bookings, clients, leads, notes, reminders, testimonials, settings]);
 
-  // Get the start of the current week (Monday)
+  // Get the start of the current week (Sunday at midnight)
   const getWeekStart = () => {
     const now = new Date();
     const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - daysFromMonday);
+    weekStart.setDate(now.getDate() - dayOfWeek); // Go back to Sunday
     weekStart.setHours(0, 0, 0, 0);
     return weekStart;
   };
@@ -450,9 +449,6 @@ const DashboardTab = ({ stats, settings, streak, quickActions, monthlyData, maxE
         ) : (
           <p className="text-slate-400 text-sm">No lead data yet</p>
         )}
-      </div>
-
-</div>
       </div>
 
       <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
